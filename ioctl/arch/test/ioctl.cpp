@@ -96,7 +96,3 @@ ioctl::call_ioctl_dump_vmm(gsl::not_null<drr_pointer> drr, vcpuid_type vcpuid)
 void
 ioctl::call_ioctl_vmm_status(gsl::not_null<status_pointer> status)
 { (void) status; }
-
-void
-ioctl::call_ioctl_vmcall(gsl::not_null<registers_pointer> regs, cpuid_type cpuid)
-{ (void) regs; (void) cpuid; }

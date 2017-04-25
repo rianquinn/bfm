@@ -20,26 +20,22 @@ if(NOT WIN32 STREQUAL "1")
         arch/linux/ioctl.cpp
         arch/linux/ioctl_private.cpp
     )
+    include_directories(arch/linux/)
 else()
     list(APPEND SOURCES
         arch/windows/ioctl.cpp
         arch/windows/ioctl_private.cpp
     )
+    include_directories(arch/windows/)
 endif()
 
 add_library(ioctl OBJECT ${SOURCES})
 add_library(bfm_ioctl SHARED $<TARGET_OBJECTS:ioctl>)
 add_library(bfm_ioctl_static STATIC $<TARGET_OBJECTS:ioctl>)
 
-target_link_libraries(bfvmm_exit_handler bfvmm_intrinsics)
-target_link_libraries(bfvmm_exit_handler bfvmm_memory_manager)
-target_link_libraries(bfvmm_exit_handler bfvmm_vmcs)
-
 # ------------------------------------------------------------------------------
 # Install
 # ------------------------------------------------------------------------------
 
-if(CMAKE_TOOLCHAIN_FILE)
-    install(TARGETS bfvmm_exit_handler DESTINATION ${BAREFLANK_SYSROOT_PATH}/lib)
-    install(TARGETS bfvmm_exit_handler_static DESTINATION ${BAREFLANK_SYSROOT_PATH}/lib)
-endif()
+install(TARGETS bfm_ioctl DESTINATION lib)
+install(TARGETS bfm_ioctl_static DESTINATION lib)

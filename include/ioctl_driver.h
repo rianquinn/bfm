@@ -22,9 +22,24 @@
 #ifndef IOCTL_DRIVER_H
 #define IOCTL_DRIVER_H
 
-#include <command_line_parser.h>
-#include <file.h>
 #include <ioctl.h>
+#include <command_line_parser.h>
+
+// -----------------------------------------------------------------------------
+// Exports
+// -----------------------------------------------------------------------------
+
+#include <bfexports.h>
+
+#ifdef COMPILING_BFMSRC
+#define EXPORT_BFMSRC EXPORT_SYM
+#else
+#define EXPORT_BFMSRC IMPORT_SYM
+#endif
+
+// -----------------------------------------------------------------------------
+// Definitions
+// -----------------------------------------------------------------------------
 
 /// IOCTL Driver
 ///
@@ -36,7 +51,7 @@
 /// If certain conditions are not meet, the IOCTL driver will error out on
 /// it's attempt to process, and return an error.
 ///
-class ioctl_driver
+class EXPORT_BFMSRC ioctl_driver
 {
 public:
 
@@ -82,6 +97,7 @@ private:
     void unload_vmm();
     void start_vmm();
     void stop_vmm();
+    void quick_vmm();
     void dump_vmm();
     void vmm_status();
     void vmcall();
@@ -96,6 +112,8 @@ private:
     void vmcall_unittest(registers_type &regs);
 
     status_type get_status() const;
+
+    command_line_parser::filename_type bf_vmm_path() const;
 
 private:
 

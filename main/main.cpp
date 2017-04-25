@@ -19,18 +19,17 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <gsl/gsl>
-
 #include <vector>
 #include <string>
 #include <memory>
 #include <iostream>
-#include <exception.h>
 
-#include <command_line_parser.h>
-#include <file.h>
 #include <ioctl.h>
 #include <ioctl_driver.h>
+#include <command_line_parser.h>
+
+#include <bfgsl.h>
+#include <bffile.h>
 
 #if !defined(__CYGWIN__) && !defined(_WIN32)
 
@@ -69,9 +68,11 @@ new_handler()
 void
 help()
 {
-    std::cout << "Usage: bfm [OPTION]... load... list_of_modules..." << std::endl;
+    std::cout << "Usage: bfm [OPTION]... load... binary" << std::endl;
+    std::cout << "  or:  bfm [OPTION]... load... file.modules" << std::endl;
     std::cout << "  or:  bfm [OPTION]... unload..." << std::endl;
     std::cout << "  or:  bfm [OPTION]... start..." << std::endl;
+    std::cout << "  or:  bfm [OPTION]... quick..." << std::endl;
     std::cout << "  or:  bfm [OPTION]... stop..." << std::endl;
     std::cout << "  or:  bfm [OPTION]... dump..." << std::endl;
     std::cout << "  or:  bfm [OPTION]... status..." << std::endl;
@@ -106,18 +107,7 @@ protected_main(const command_line_parser::arg_list_type &args)
     // Command Line Parser
 
     auto &&clp = std::make_unique<command_line_parser>();
-
-    try
-    {
-        clp->parse(args);
-    }
-    catch (bfn::general_exception &ge)
-    {
-        std::cerr << "bfm: " << ge << '\n';
-        std::cerr << "Try `bfm --help' for more information." << '\n';
-
-        return EXIT_FAILURE;
-    }
+    clp->parse(args);
 
     if (clp->cmd() == command_line_parser_command::help)
     {
@@ -129,17 +119,7 @@ protected_main(const command_line_parser::arg_list_type &args)
     // IO Controller
 
     auto &&ctl = std::make_unique<ioctl>();
-
-    try
-    {
-        ctl->open();
-    }
-    catch (bfn::general_exception &ge)
-    {
-        std::cerr << "bfm: " << ge << '\n';
-
-        return EXIT_FAILURE;
-    }
+    ctl->open();
 
     // -------------------------------------------------------------------------
     // Page-In Memory
@@ -151,21 +131,20 @@ protected_main(const command_line_parser::arg_list_type &args)
     flush();
 
     // -------------------------------------------------------------------------
+    // CPU Affinity
+
+
+
+    // -------------------------------------------------------------------------
     // IOCTR Driver
 
-    try
-    {
-        auto &&f = std::make_unique<file>();
-        auto &&driver = std::make_unique<ioctl_driver>(f.get(), ctl.get(), clp.get());
+    auto &&f = std::make_unique<file>();
+    auto &&driver = std::make_unique<ioctl_driver>(f.get(), ctl.get(), clp.get());
 
-        driver->process();
-    }
-    catch (bfn::general_exception &ge)
-    {
-        std::cerr << "bfm: " << ge << '\n';
+    driver->process();
 
-        return EXIT_FAILURE;
-    }
+    // -------------------------------------------------------------------------
+    // Done
 
     return EXIT_SUCCESS;
 }

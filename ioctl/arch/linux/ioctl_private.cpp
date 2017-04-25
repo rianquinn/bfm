@@ -19,9 +19,10 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <exception.h>
 #include <ioctl_private.h>
-#include <driver_entry_interface.h>
+
+#include <bfgsl.h>
+#include <bfdriverinterface.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -74,7 +75,7 @@ void
 ioctl_private::open()
 {
     if ((fd = bf_ioctl_open()) < 0)
-        throw driver_inaccessible();
+        throw std::runtime_error("failed to open to bfdriver");
 }
 
 void
@@ -83,67 +84,57 @@ ioctl_private::call_ioctl_add_module_length(module_len_type len)
     expects(len > 0);
 
     if (bf_write_ioctl(fd, IOCTL_ADD_MODULE_LENGTH, &len) < 0)
-        throw ioctl_failed(IOCTL_ADD_MODULE_LENGTH);
+        throw std::runtime_error("ioctl failed: IOCTL_ADD_MODULE_LENGTH");
 }
 
 void
 ioctl_private::call_ioctl_add_module(gsl::not_null<module_data_type> data)
 {
     if (bf_write_ioctl(fd, IOCTL_ADD_MODULE, data) < 0)
-        throw ioctl_failed(IOCTL_ADD_MODULE);
+        throw std::runtime_error("ioctl failed: IOCTL_ADD_MODULE");
 }
 
 void
 ioctl_private::call_ioctl_load_vmm()
 {
     if (bf_send_ioctl(fd, IOCTL_LOAD_VMM) < 0)
-        throw ioctl_failed(IOCTL_LOAD_VMM);
+        throw std::runtime_error("ioctl failed: IOCTL_LOAD_VMM");
 }
 
 void
 ioctl_private::call_ioctl_unload_vmm()
 {
     if (bf_send_ioctl(fd, IOCTL_UNLOAD_VMM) < 0)
-        throw ioctl_failed(IOCTL_UNLOAD_VMM);
+        throw std::runtime_error("ioctl failed: IOCTL_UNLOAD_VMM");
 }
 
 void
 ioctl_private::call_ioctl_start_vmm()
 {
     if (bf_send_ioctl(fd, IOCTL_START_VMM) < 0)
-        throw ioctl_failed(IOCTL_START_VMM);
+        throw std::runtime_error("ioctl failed: IOCTL_START_VMM");
 }
 
 void
 ioctl_private::call_ioctl_stop_vmm()
 {
     if (bf_send_ioctl(fd, IOCTL_STOP_VMM) < 0)
-        throw ioctl_failed(IOCTL_STOP_VMM);
+        throw std::runtime_error("ioctl failed: IOCTL_STOP_VMM");
 }
 
 void
 ioctl_private::call_ioctl_dump_vmm(gsl::not_null<drr_pointer> drr, vcpuid_type vcpuid)
 {
     if (bf_write_ioctl(fd, IOCTL_SET_VCPUID, &vcpuid) < 0)
-        throw ioctl_failed(IOCTL_SET_VCPUID);
+        throw std::runtime_error("ioctl failed: IOCTL_SET_VCPUID");
 
     if (bf_read_ioctl(fd, IOCTL_DUMP_VMM, drr) < 0)
-        throw ioctl_failed(IOCTL_DUMP_VMM);
+        throw std::runtime_error("ioctl failed: IOCTL_DUMP_VMM");
 }
 
 void
 ioctl_private::call_ioctl_vmm_status(gsl::not_null<status_pointer> status)
 {
     if (bf_read_ioctl(fd, IOCTL_VMM_STATUS, status) < 0)
-        throw ioctl_failed(IOCTL_VMM_STATUS);
-}
-
-void
-ioctl_private::call_ioctl_vmcall(gsl::not_null<registers_pointer> regs, cpuid_type cpuid)
-{
-    if (bf_write_ioctl(fd, IOCTL_SET_CPUID, &cpuid) < 0)
-        throw ioctl_failed(IOCTL_SET_CPUID);
-
-    if (bf_write_ioctl(fd, IOCTL_VMCALL, regs) < 0)
-        throw ioctl_failed(IOCTL_VMCALL);
+        throw std::runtime_error("ioctl failed: IOCTL_VMM_STATUS");
 }

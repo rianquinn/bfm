@@ -25,23 +25,36 @@
 #include <vector>
 #include <string>
 
-#include <file.h>
 #include <ioctl.h>
+#include <bffile.h>
 
-namespace command_line_parser_command
-{
-enum type
-{
+enum class command_line_parser_command {
     help = 1,
     load = 2,
     unload = 3,
     start = 4,
     stop = 5,
-    dump = 6,
-    status = 7,
-    vmcall = 8
+    quick = 6,
+    dump = 7,
+    status = 8,
+    vmcall = 9
 };
-}
+
+// -----------------------------------------------------------------------------
+// Exports
+// -----------------------------------------------------------------------------
+
+#include <bfexports.h>
+
+#ifdef COMPILING_BFMSRC
+#define EXPORT_BFMSRC EXPORT_SYM
+#else
+#define EXPORT_BFMSRC IMPORT_SYM
+#endif
+
+// -----------------------------------------------------------------------------
+// Definitions
+// -----------------------------------------------------------------------------
 
 /// Command Line Parser
 ///
@@ -51,7 +64,7 @@ enum type
 /// this class. Other classes can use the information that this class gathers
 /// to decide how to operate.
 ///
-class command_line_parser
+class EXPORT_BFMSRC command_line_parser
 {
 public:
 
@@ -59,9 +72,9 @@ public:
     using arg_type = std::string;
     using arg_list_type = std::vector<arg_type>;
     using filename_type = file::filename_type;
-    using cpuid_type = ioctl::cpuid_type;
+    using cpuid_type = uint64_t;
     using vcpuid_type = ioctl::vcpuid_type;
-    using command_type = command_line_parser_command::type;
+    using command_type = command_line_parser_command;
 
     /// Command Line Parser Constructor
     ///
@@ -171,6 +184,7 @@ private:
     void parse_unload(arg_list_type &args);
     void parse_start(arg_list_type &args);
     void parse_stop(arg_list_type &args);
+    void parse_quick(arg_list_type &args);
     void parse_dump(arg_list_type &args);
     void parse_status(arg_list_type &args);
     void parse_vmcall(arg_list_type &args);

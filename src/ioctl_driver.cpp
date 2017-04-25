@@ -19,14 +19,19 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <gsl/gsl>
+#include <bfgsl.h>
+#include <bffile.h>
+#include <bfdebug.h>
+#include <bfstring.h>
+#include <bfshuffle.h>
+#include <bfvmcallinterface.h>
+#include <bfdriverinterface.h>
 
-#include <json.h>
-#include <debug.h>
-#include <exception.h>
 #include <ioctl_driver.h>
-#include <vmcall_interface.h>
-#include <driver_entry_interface.h>
+#include <bfelf_loader.h>
+
+#include <nlohmann/json.hpp>
+using namespace nlohmann;
 
 ioctl_driver::ioctl_driver(gsl::not_null<file *> f,
                            gsl::not_null<ioctl *> ctl,
@@ -39,8 +44,7 @@ ioctl_driver::ioctl_driver(gsl::not_null<file *> f,
 void
 ioctl_driver::process()
 {
-    switch (m_clp->cmd())
-    {
+    switch (m_clp->cmd()) {
         case command_line_parser::command_type::help:
             return;
 
@@ -56,6 +60,9 @@ ioctl_driver::process()
         case command_line_parser::command_type::stop:
             return this->stop_vmm();
 
+        case command_line_parser::command_type::quick:
+            return this->quick_vmm();
+
         case command_line_parser::command_type::dump:
             return this->dump_vmm();
 
@@ -67,35 +74,102 @@ ioctl_driver::process()
     }
 }
 
-#include <random>
-#include <algorithm>
+auto
+bf_library_path(gsl::not_null<file *> f)
+{
+    auto &&paths = std::vector<std::string>{};
+
+    for (const auto &path : bfn::split(std::getenv("BF_LIBRARY_PATH"), ';')) {
+        paths.push_back(path);
+    }
+
+    auto &&default_paths = {
+        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/lib",
+        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin"
+    };
+
+    for (const auto &path : default_paths) {
+        paths.push_back(path);
+    }
+
+    return paths;
+}
+
+command_line_parser::filename_type
+ioctl_driver::bf_vmm_path() const
+{
+    auto filename = m_clp->modules();
+    auto default_filename = m_file->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin/dummy_main";
+
+    if (!filename.empty()) {
+        return filename;
+    }
+
+    if (auto bf_vmm_path = std::getenv("BF_VMM_PATH")) {
+        return {bf_vmm_path};
+    }
+
+    return default_filename;
+}
 
 void
 ioctl_driver::load_vmm()
 {
-    switch (get_status())
-    {
+    auto &&filename = bf_vmm_path();
+
+    // TODO:
+    //
+    // Break this function up so that it is easier to test
+    //
+
+    auto &&module_list = std::vector<std::string>{};
+    auto &&ext = m_file->extension(filename);
+
+    switch (get_status()) {
         case VMM_RUNNING: stop_vmm();
         case VMM_LOADED: unload_vmm();
         case VMM_UNLOADED: break;
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
-    auto &&modules = json::parse(m_file->read_text(m_clp->modules()));
+    if (ext == ".modules") {
+        for (const auto &module : json::parse(m_file->read_text(filename))) {
+            module_list.push_back(module);
+        }
+    }
+    else {
+        auto &&ret = 0LL;
+        bfelf_file_t ef = {};
+        auto &&bin = m_file->read_binary(filename);
+
+        ret = bfelf_file_init(bin.data(), bin.size(), &ef);
+        if (ret != BFELF_SUCCESS) {
+            throw std::runtime_error("bfelf_file_init failed: " + std::to_string(ret));
+        }
+
+        auto &&files = bfelf_file_get_needed_list(&ef);
+        auto &&paths = bf_library_path(m_file);
+
+        module_list = m_file->find_files(files, paths);
+        module_list.push_back(filename);
+    }
+
+    // TODO
+    //
+    // BF_DISABLE_ASLR should only work if production mode is turned off
+    //
+
+    if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
+        bfn::shuffle(module_list);
+    }
 
     auto ___ = gsl::on_failure([&]
     { unload_vmm(); });
 
-    auto &&module_list = modules["modules"];
-
-    std::random_device rd;
-    std::mt19937 g(rd());
-
-    std::shuffle(module_list.begin(), module_list.end(), g);
-
-    for (const auto &module : module_list)
+    for (const auto &module : module_list) {
         m_ioctl->call_ioctl_add_module(m_file->read_binary(module));
+    }
 
     m_ioctl->call_ioctl_load_vmm();
 }
@@ -103,13 +177,12 @@ ioctl_driver::load_vmm()
 void
 ioctl_driver::unload_vmm()
 {
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_RUNNING: stop_vmm();
         case VMM_LOADED: break;
         case VMM_UNLOADED: break;
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
     m_ioctl->call_ioctl_unload_vmm();
@@ -118,13 +191,12 @@ ioctl_driver::unload_vmm()
 void
 ioctl_driver::start_vmm()
 {
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_RUNNING: stop_vmm();
         case VMM_LOADED: break;
-        case VMM_UNLOADED: throw invalid_vmm_state("vmm must be loaded first");
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_UNLOADED: throw std::runtime_error("vmm must be loaded first");
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
     m_ioctl->call_ioctl_start_vmm();
@@ -133,16 +205,22 @@ ioctl_driver::start_vmm()
 void
 ioctl_driver::stop_vmm()
 {
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_RUNNING: break;
         case VMM_LOADED: return;
         case VMM_UNLOADED: return;
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
     m_ioctl->call_ioctl_stop_vmm();
+}
+
+void
+ioctl_driver::quick_vmm()
+{
+    load_vmm();
+    start_vmm();
 }
 
 void
@@ -151,31 +229,30 @@ ioctl_driver::dump_vmm()
     auto drr = ioctl::drr_type{};
     auto buffer = std::make_unique<char[]>(DEBUG_RING_SIZE);
 
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_RUNNING: break;
         case VMM_LOADED: break;
-        case VMM_UNLOADED: throw invalid_vmm_state("vmm must be loaded first");
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_UNLOADED: throw std::runtime_error("vmm must be loaded first");
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
     m_ioctl->call_ioctl_dump_vmm(&drr, m_clp->vcpuid());
 
-    if (debug_ring_read(&drr, buffer.get(), DEBUG_RING_SIZE) > 0)
+    if (debug_ring_read(&drr, buffer.get(), DEBUG_RING_SIZE) > 0) {
         std::cout << buffer.get();
+    }
 }
 
 void
 ioctl_driver::vmm_status()
 {
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_UNLOADED: std::cout << "VMM_UNLOADED\n"; return;
         case VMM_LOADED: std::cout << "VMM_LOADED\n"; return;
         case VMM_RUNNING: std::cout << "VMM_RUNNING\n"; return;
         case VMM_CORRUPT: std::cout << "VMM_CORRUPT\n"; return;
-        default: throw unknown_status();
+        default: throw std::runtime_error("unknown status");
     }
 }
 
@@ -184,17 +261,15 @@ ioctl_driver::vmcall()
 {
     auto regs = m_clp->registers();
 
-    switch (get_status())
-    {
+    switch (get_status()) {
         case VMM_RUNNING: break;
-        case VMM_LOADED: throw invalid_vmm_state("vmm must be running first");
-        case VMM_UNLOADED: throw invalid_vmm_state("vmm must be running first");
-        case VMM_CORRUPT: throw corrupt_vmm();
-        default: throw unknown_status();
+        case VMM_LOADED: throw std::runtime_error("vmm must be running first");
+        case VMM_UNLOADED: throw std::runtime_error("vmm must be running first");
+        case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
+        default: throw std::runtime_error("unknown status");
     }
 
-    switch (regs.r00)
-    {
+    switch (regs.r00) {
         case VMCALL_VERSIONS:
             this->vmcall_versions(regs);
             break;
@@ -223,10 +298,11 @@ ioctl_driver::vmcall()
 void
 ioctl_driver::vmcall_send_regs(registers_type &regs)
 {
-    m_ioctl->call_ioctl_vmcall(&regs, m_clp->cpuid());
+    ::vmcall(&regs);
 
-    if (regs.r01 != 0)
-        throw ioctl_failed(IOCTL_VMCALL);
+    if (regs.r01 != 0) {
+        throw std::runtime_error("ioctl failed: IOCTL_VMCALL");
+    }
 }
 
 void
@@ -234,8 +310,7 @@ ioctl_driver::vmcall_versions(registers_type &regs)
 {
     this->vmcall_send_regs(regs);
 
-    switch (regs.r02)
-    {
+    switch (regs.r02) {
         case VMCALL_VERSION_PROTOCOL:
             std::cout << "VMCALL_VERSIONS: " << view_as_pointer(regs.r03) << std::endl;
             break;
@@ -273,16 +348,12 @@ ioctl_driver::vmcall_registers(registers_type &regs)
     std::cout << "r10: " << view_as_pointer(regs.r10) << std::endl;
     std::cout << "r11: " << view_as_pointer(regs.r11) << std::endl;
     std::cout << "r12: " << view_as_pointer(regs.r12) << std::endl;
-    // std::cout << "r13: " << view_as_pointer(regs.r13) << std::endl;
-    // std::cout << "r14: " << view_as_pointer(regs.r14) << std::endl;
-    // std::cout << "r15: " << view_as_pointer(regs.r15) << std::endl;
 }
 
 void
 ioctl_driver::vmcall_data(registers_type &regs)
 {
-    switch (regs.r04)
-    {
+    switch (regs.r04) {
         case VMCALL_DATA_STRING_UNFORMATTED:
         case VMCALL_DATA_STRING_JSON:
             this->vmcall_data_string(regs);
@@ -307,8 +378,7 @@ ioctl_driver::vmcall_data_string(registers_type &regs)
 
     vmcall_send_regs(regs);
 
-    switch (regs.r07)
-    {
+    switch (regs.r07) {
         case VMCALL_DATA_STRING_JSON:
 
             if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE)
@@ -342,8 +412,7 @@ ioctl_driver::vmcall_data_binary(registers_type &regs)
 
     vmcall_send_regs(regs);
 
-    switch (regs.r07)
-    {
+    switch (regs.r07) {
         case VMCALL_DATA_BINARY_UNFORMATTED:
 
             if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE)

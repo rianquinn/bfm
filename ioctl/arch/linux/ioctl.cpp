@@ -84,10 +84,3 @@ ioctl::call_ioctl_vmm_status(gsl::not_null<status_pointer> status)
     if (auto d = dynamic_cast<ioctl_private *>(m_d.get()))
         d->call_ioctl_vmm_status(status);
 }
-
-void
-ioctl::call_ioctl_vmcall(gsl::not_null<registers_pointer> regs, cpuid_type cpuid)
-{
-    if (auto d = dynamic_cast<ioctl_private *>(m_d.get()))
-        d->call_ioctl_vmcall(regs, cpuid);
-}

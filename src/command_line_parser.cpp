@@ -19,12 +19,14 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <gsl/gsl>
-
-#include <json.h>
-#include <exception.h>
-#include <vmcall_interface.h>
 #include <command_line_parser.h>
+
+#include <bfgsl.h>
+#include <bfvector.h>
+#include <bfvmcallinterface.h>
+
+#include <nlohmann/json.hpp>
+using namespace nlohmann;
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -87,11 +89,12 @@ command_line_parser::parse(const arg_list_type &args)
     if (cmd == "unload") return parse_unload(filtered_args);
     if (cmd == "start") return parse_start(filtered_args);
     if (cmd == "stop") return parse_stop(filtered_args);
+    if (cmd == "quick") return parse_quick(filtered_args);
     if (cmd == "dump") return parse_dump(filtered_args);
     if (cmd == "status") return parse_status(filtered_args);
     if (cmd == "vmcall") return parse_vmcall(filtered_args);
 
-    throw unknown_command(cmd);
+    throw std::runtime_error("unknown command: " + cmd);
 }
 
 command_line_parser::command_type
@@ -139,7 +142,7 @@ void
 command_line_parser::parse_load(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_cmd = command_type::load;
     m_modules = args[0];
@@ -148,35 +151,42 @@ command_line_parser::parse_load(arg_list_type &args)
 void
 command_line_parser::parse_unload(arg_list_type &args)
 {
-    (void) args;
+    ignored(args);
     m_cmd = command_type::unload;
 }
 
 void
 command_line_parser::parse_start(arg_list_type &args)
 {
-    (void) args;
+    ignored(args);
     m_cmd = command_type::start;
 }
 
 void
 command_line_parser::parse_stop(arg_list_type &args)
 {
-    (void) args;
+    ignored(args);
     m_cmd = command_type::stop;
+}
+
+void
+command_line_parser::parse_quick(arg_list_type &args)
+{
+    ignored(args);
+    m_cmd = command_type::quick;
 }
 
 void
 command_line_parser::parse_dump(arg_list_type &args)
 {
-    (void) args;
+    ignored(args);
     m_cmd = command_type::dump;
 }
 
 void
 command_line_parser::parse_status(arg_list_type &args)
 {
-    (void) args;
+    ignored(args);
     m_cmd = command_type::status;
 }
 
@@ -184,7 +194,7 @@ void
 command_line_parser::parse_vmcall(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     auto opcode = bfn::take(args, 0);
 
@@ -195,14 +205,14 @@ command_line_parser::parse_vmcall(arg_list_type &args)
     if (opcode == "event") return parse_vmcall_event(args);
     if (opcode == "unittest") return parse_vmcall_unittest(args);
 
-    throw unknown_vmcall_type(opcode);
+    throw std::runtime_error("unknown vmcall opcode: " + opcode);
 }
 
 void
 command_line_parser::parse_vmcall_version(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_registers.r00 = VMCALL_VERSIONS;
     m_registers.r01 = VMCALL_MAGIC_NUMBER;
@@ -262,33 +272,33 @@ void
 command_line_parser::parse_vmcall_string(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     auto type = bfn::take(args, 0);
 
     if (type == "unformatted") return parse_vmcall_string_unformatted(args);
     if (type == "json") return parse_vmcall_string_json(args);
 
-    throw unknown_vmcall_string_type(type);
+    throw std::runtime_error("unknown vmcall string type: " + type);
 }
 
 void
 command_line_parser::parse_vmcall_data(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     auto type = bfn::take(args, 0);
     if (type == "unformatted") return parse_vmcall_data_unformatted(args);
 
-    throw unknown_vmcall_data_type(type);
+    throw std::runtime_error("unknown vmcall data type: " + type);
 }
 
 void
 command_line_parser::parse_vmcall_event(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_registers.r00 = VMCALL_EVENT;
     m_registers.r01 = VMCALL_MAGIC_NUMBER;
@@ -301,7 +311,7 @@ void
 command_line_parser::parse_vmcall_unittest(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_registers.r00 = VMCALL_UNITTEST;
     m_registers.r01 = VMCALL_MAGIC_NUMBER;
@@ -314,7 +324,7 @@ void
 command_line_parser::parse_vmcall_string_unformatted(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_string_data = args[0];
 
@@ -333,7 +343,7 @@ void
 command_line_parser::parse_vmcall_string_json(arg_list_type &args)
 {
     if (args.empty())
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_string_data = json::parse(args[0]).dump();
 
@@ -352,7 +362,7 @@ void
 command_line_parser::parse_vmcall_data_unformatted(arg_list_type &args)
 {
     if (args.size() < 2)
-        throw missing_argument();
+        throw std::runtime_error("missing argument");
 
     m_registers.r00 = VMCALL_DATA;
     m_registers.r01 = VMCALL_MAGIC_NUMBER;

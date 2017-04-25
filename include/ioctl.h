@@ -24,15 +24,32 @@
 
 #include <memory>
 
-#include <file.h>
-#include <vmcall_interface.h>
-#include <debug_ring_interface.h>
+#include <bfgsl.h>
+#include <bffile.h>
+#include <bfvmcallinterface.h>
+#include <bfdebugringinterface.h>
+
+// -----------------------------------------------------------------------------
+// Exports
+// -----------------------------------------------------------------------------
+
+#include <bfexports.h>
+
+#ifdef COMPILING_IOCTL
+#define EXPORT_IOCTL EXPORT_SYM
+#else
+#define EXPORT_IOCTL IMPORT_SYM
+#endif
+
+// -----------------------------------------------------------------------------
+// Definitions
+// -----------------------------------------------------------------------------
 
 /// IOCTL Private Base
 ///
 /// Only needed for dynamic cast
 ///
-class ioctl_private_base
+class EXPORT_IOCTL ioctl_private_base
 {
 public:
     ioctl_private_base() = default;
@@ -45,14 +62,13 @@ public:
 /// that for this class to function, the driver entry must be loaded, and
 /// bfm must be executed with the proper permissions.
 ///
-class ioctl
+class EXPORT_IOCTL ioctl
 {
 public:
 
     using binary_data = file::binary_data;
     using drr_type = debug_ring_resources_t;
     using drr_pointer = drr_type *;
-    using cpuid_type = uint64_t;
     using vcpuid_type = uint64_t;
     using status_type = int64_t;
     using status_pointer = status_type *;
@@ -151,18 +167,6 @@ public:
     /// @param status pointer to status variable to store the results
     ///
     virtual void call_ioctl_vmm_status(gsl::not_null<status_pointer> status);
-
-    /// VMCall
-    ///
-    /// Performs a VMCall
-    ///
-    /// @expects status != nullptr
-    /// @ensures none
-    ///
-    /// @param regs register values to send to the hypervisor
-    /// @param cpuid indicates which vcpu to vmcall
-    ///
-    virtual void call_ioctl_vmcall(gsl::not_null<registers_pointer> regs, cpuid_type cpuid);
 
 private:
 

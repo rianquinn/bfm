@@ -18,12 +18,6 @@ include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Project.txt")
 # ------------------------------------------------------------------------------
 
 add_subdirectory(ioctl)
-#add_subdirectory(src)
-#add_subdirectory(main)
+add_subdirectory(src)
+add_subdirectory(main)
 #add_subdirectory(tests)
-
-# ------------------------------------------------------------------------------
-# Install
-# ------------------------------------------------------------------------------
-
-#install(FILES include/bfelf_loader.h DESTINATION include)
