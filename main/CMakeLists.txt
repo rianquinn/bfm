@@ -9,7 +9,7 @@ include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Includes.txt")
 # ------------------------------------------------------------------------------
 
 list(APPEND SOURCES
-    
+
 )
 
 add_executable(bfm main.cpp)
