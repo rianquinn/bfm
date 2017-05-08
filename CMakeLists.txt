@@ -20,4 +20,7 @@ include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Project.txt")
 add_subdirectory(ioctl)
 add_subdirectory(src)
 add_subdirectory(main)
-#add_subdirectory(tests)
+
+# if(ENABLE_UNITTESTING)
+#     add_subdirectory(tests)
+# endif()
