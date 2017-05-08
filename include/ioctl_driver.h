@@ -31,10 +31,14 @@
 
 #include <bfexports.h>
 
-#ifdef COMPILING_BFMSRC
-#define EXPORT_BFMSRC EXPORT_SYM
+#ifndef STATIC_BFM_SRC
+#ifdef SHARED_BFM_SRC
+#define EXPORT_BFM_SRC EXPORT_SYM
 #else
-#define EXPORT_BFMSRC IMPORT_SYM
+#define EXPORT_BFM_SRC IMPORT_SYM
+#endif
+#else
+#define EXPORT_BFM_SRC
 #endif
 
 // -----------------------------------------------------------------------------
@@ -51,7 +55,7 @@
 /// If certain conditions are not meet, the IOCTL driver will error out on
 /// it's attempt to process, and return an error.
 ///
-class EXPORT_BFMSRC ioctl_driver
+class EXPORT_BFM_SRC ioctl_driver
 {
 public:
 

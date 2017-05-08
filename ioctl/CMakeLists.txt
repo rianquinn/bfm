@@ -5,11 +5,10 @@
 include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Includes.txt")
 
 # ------------------------------------------------------------------------------
-# Exports
+# Flags
 # ------------------------------------------------------------------------------
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOMPILING_IOCTL")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCOMPILING_IOCTL")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCMAKE_INSTALL_PREFIX=\\\"${CMAKE_INSTALL_PREFIX}\\\"")
 
 # ------------------------------------------------------------------------------
 # Targets
@@ -29,9 +28,11 @@ else()
     include_directories(arch/windows/)
 endif()
 
-add_library(ioctl OBJECT ${SOURCES})
-add_library(bfm_ioctl SHARED $<TARGET_OBJECTS:ioctl>)
-add_library(bfm_ioctl_static STATIC $<TARGET_OBJECTS:ioctl>)
+add_library(bfm_ioctl SHARED ${SOURCES})
+add_library(bfm_ioctl_static STATIC ${SOURCES})
+
+target_compile_definitions(bfm_ioctl PRIVATE SHARED_BFM_IOCTL)
+target_compile_definitions(bfm_ioctl_static PUBLIC STATIC_BFM_IOCTL)
 
 # ------------------------------------------------------------------------------
 # Install

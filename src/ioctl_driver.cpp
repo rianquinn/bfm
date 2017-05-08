@@ -75,7 +75,7 @@ ioctl_driver::process()
 }
 
 auto
-bf_library_path(gsl::not_null<file *> f)
+bf_library_path()
 {
     std::vector<std::string> paths;
 
@@ -84,8 +84,8 @@ bf_library_path(gsl::not_null<file *> f)
     }
 
     auto default_paths = {
-        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/lib",
-        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin"
+        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/lib"_s,
+        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/bin"_s
     };
 
     for (const auto &path : default_paths) {
@@ -99,7 +99,9 @@ command_line_parser::filename_type
 ioctl_driver::bf_vmm_path() const
 {
     auto filename = m_clp->modules();
-    auto default_filename = m_file->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin/bfvmm_main";
+    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm_main";
+
+    std::cout << default_filename << '\n';
 
     if (!filename.empty()) {
         return filename;
@@ -148,7 +150,7 @@ ioctl_driver::load_vmm()
         bfelf_binary_t binary = {};
 
         module_list = bfelf_read_binary_and_get_needed_list(
-            m_file, filename, bf_library_path(m_file), buffer, binary);
+            m_file, filename, bf_library_path(), buffer, binary);
 
         if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
             bfn::shuffle(module_list);
