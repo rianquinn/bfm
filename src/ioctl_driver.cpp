@@ -101,8 +101,6 @@ ioctl_driver::bf_vmm_path() const
     auto filename = m_clp->modules();
     auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm_main";
 
-    std::cout << default_filename << '\n';
-
     if (!filename.empty()) {
         return filename;
     }
