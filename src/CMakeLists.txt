@@ -5,11 +5,10 @@
 include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Includes.txt")
 
 # ------------------------------------------------------------------------------
-# Exports
+# Flags
 # ------------------------------------------------------------------------------
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOMPILING_BFMSRC")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCOMPILING_BFMSRC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCMAKE_INSTALL_PREFIX=\\\"${CMAKE_INSTALL_PREFIX}\\\"")
 
 # ------------------------------------------------------------------------------
 # Targets
@@ -21,6 +20,8 @@ list(APPEND SOURCES
     ${CMAKE_INSTALL_PREFIX}/src/bfvmcall_intel_x64.asm
 )
 
-add_library(obj OBJECT ${SOURCES})
-add_library(bfm_src SHARED $<TARGET_OBJECTS:obj>)
-add_library(bfm_src_static STATIC $<TARGET_OBJECTS:obj>)
+add_library(bfm_src SHARED ${SOURCES})
+add_library(bfm_src_static STATIC ${SOURCES})
+
+target_compile_definitions(bfm_src PRIVATE SHARED_BFM_SRC)
+target_compile_definitions(bfm_src_static PUBLIC STATIC_BFM_SRC)

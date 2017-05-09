@@ -35,10 +35,14 @@
 
 #include <bfexports.h>
 
-#ifdef COMPILING_IOCTL
-#define EXPORT_IOCTL EXPORT_SYM
+#ifndef STATIC_BFM_IOCTL
+#ifdef SHARED_BFM_IOCTL
+#define EXPORT_BFM_IOCTL EXPORT_SYM
 #else
-#define EXPORT_IOCTL IMPORT_SYM
+#define EXPORT_BFM_IOCTL IMPORT_SYM
+#endif
+#else
+#define EXPORT_BFM_IOCTL
 #endif
 
 // -----------------------------------------------------------------------------
@@ -49,7 +53,7 @@
 ///
 /// Only needed for dynamic cast
 ///
-class EXPORT_IOCTL ioctl_private_base
+class EXPORT_BFM_IOCTL ioctl_private_base
 {
 public:
     ioctl_private_base() = default;
@@ -62,7 +66,7 @@ public:
 /// that for this class to function, the driver entry must be loaded, and
 /// bfm must be executed with the proper permissions.
 ///
-class EXPORT_IOCTL ioctl
+class EXPORT_BFM_IOCTL ioctl
 {
 public:
 

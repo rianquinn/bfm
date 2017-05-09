@@ -8,10 +8,6 @@ include("${CMAKE_INSTALL_PREFIX}/cmake/CMakeGlobal_Includes.txt")
 # Targets
 # ------------------------------------------------------------------------------
 
-list(APPEND SOURCES
-    
-)
-
 add_executable(bfm main.cpp)
 
 target_link_libraries(bfm bfm_src_static)

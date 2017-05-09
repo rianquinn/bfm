@@ -46,10 +46,14 @@ enum class command_line_parser_command {
 
 #include <bfexports.h>
 
-#ifdef COMPILING_BFMSRC
-#define EXPORT_BFMSRC EXPORT_SYM
+#ifndef STATIC_BFM_SRC
+#ifdef SHARED_BFM_SRC
+#define EXPORT_BFM_SRC EXPORT_SYM
 #else
-#define EXPORT_BFMSRC IMPORT_SYM
+#define EXPORT_BFM_SRC IMPORT_SYM
+#endif
+#else
+#define EXPORT_BFM_SRC
 #endif
 
 // -----------------------------------------------------------------------------
@@ -64,7 +68,7 @@ enum class command_line_parser_command {
 /// this class. Other classes can use the information that this class gathers
 /// to decide how to operate.
 ///
-class EXPORT_BFMSRC command_line_parser
+class EXPORT_BFM_SRC command_line_parser
 {
 public:
 

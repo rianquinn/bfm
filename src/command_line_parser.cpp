@@ -151,42 +151,42 @@ command_line_parser::parse_load(arg_list_type &args)
 void
 command_line_parser::parse_unload(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::unload;
 }
 
 void
 command_line_parser::parse_start(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::start;
 }
 
 void
 command_line_parser::parse_stop(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::stop;
 }
 
 void
 command_line_parser::parse_quick(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::quick;
 }
 
 void
 command_line_parser::parse_dump(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::dump;
 }
 
 void
 command_line_parser::parse_status(arg_list_type &args)
 {
-    ignored(args);
+    bfignored(args);
     m_cmd = command_type::status;
 }
 

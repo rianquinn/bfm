@@ -75,17 +75,17 @@ ioctl_driver::process()
 }
 
 auto
-bf_library_path(gsl::not_null<file *> f)
+bf_library_path()
 {
-    auto &&paths = std::vector<std::string>{};
+    std::vector<std::string> paths;
 
     for (const auto &path : bfn::split(std::getenv("BF_LIBRARY_PATH"), ';')) {
         paths.push_back(path);
     }
 
-    auto &&default_paths = {
-        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/lib",
-        f->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin"
+    auto default_paths = {
+        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/lib"_s,
+        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/bin"_s
     };
 
     for (const auto &path : default_paths) {
@@ -99,7 +99,9 @@ command_line_parser::filename_type
 ioctl_driver::bf_vmm_path() const
 {
     auto filename = m_clp->modules();
-    auto default_filename = m_file->home() + "/bfprefix/sysroots/x86_64-vmm-elf/bin/dummy_main";
+    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm_main";
+
+    std::cout << default_filename << '\n';
 
     if (!filename.empty()) {
         return filename;
@@ -122,8 +124,8 @@ ioctl_driver::load_vmm()
     // Break this function up so that it is easier to test
     //
 
-    auto &&module_list = std::vector<std::string>{};
-    auto &&ext = m_file->extension(filename);
+    std::vector<std::string> module_list;
+    auto ext = m_file->extension(filename);
 
     switch (get_status()) {
         case VMM_RUNNING: stop_vmm();
@@ -137,21 +139,23 @@ ioctl_driver::load_vmm()
         for (const auto &module : json::parse(m_file->read_text(filename))) {
             module_list.push_back(module);
         }
+
+        if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
+            bfn::shuffle(module_list);
+        }
     }
     else {
-        auto &&ret = 0LL;
-        bfelf_file_t ef = {};
-        auto &&bin = m_file->read_binary(filename);
 
-        ret = bfelf_file_init(bin.data(), bin.size(), &ef);
-        if (ret != BFELF_SUCCESS) {
-            throw std::runtime_error("bfelf_file_init failed: " + std::to_string(ret));
+        bfn::buffer buffer;
+        bfelf_binary_t binary = {};
+
+        module_list = bfelf_read_binary_and_get_needed_list(
+            m_file, filename, bf_library_path(), buffer, binary);
+
+        if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
+            bfn::shuffle(module_list);
         }
 
-        auto &&files = bfelf_file_get_needed_list(&ef);
-        auto &&paths = bf_library_path(m_file);
-
-        module_list = m_file->find_files(files, paths);
         module_list.push_back(filename);
     }
 
@@ -159,10 +163,6 @@ ioctl_driver::load_vmm()
     //
     // BF_DISABLE_ASLR should only work if production mode is turned off
     //
-
-    if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
-        bfn::shuffle(module_list);
-    }
 
     auto ___ = gsl::on_failure([&]
     { unload_vmm(); });
