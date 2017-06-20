@@ -21,17 +21,15 @@
 
 #include <bfgsl.h>
 #include <bffile.h>
+#include <bfjson.h>
 #include <bfdebug.h>
 #include <bfstring.h>
 #include <bfshuffle.h>
+#include <bfelf_loader.h>
 #include <bfvmcallinterface.h>
 #include <bfdriverinterface.h>
 
 #include <ioctl_driver.h>
-#include <bfelf_loader.h>
-
-#include <nlohmann/json.hpp>
-using namespace nlohmann;
 
 ioctl_driver::ioctl_driver(gsl::not_null<file *> f,
                            gsl::not_null<ioctl *> ctl,
@@ -99,7 +97,7 @@ command_line_parser::filename_type
 ioctl_driver::bf_vmm_path() const
 {
     auto filename = m_clp->modules();
-    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm_main";
+    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm";
 
     if (!filename.empty()) {
         return filename;
@@ -148,7 +146,7 @@ ioctl_driver::load_vmm()
         bfelf_binary_t binary = {};
 
         module_list = bfelf_read_binary_and_get_needed_list(
-            m_file, filename, bf_library_path(), buffer, binary);
+                          m_file, filename, bf_library_path(), buffer, binary);
 
         if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
             bfn::shuffle(module_list);
@@ -379,16 +377,18 @@ ioctl_driver::vmcall_data_string(registers_type &regs)
     switch (regs.r07) {
         case VMCALL_DATA_STRING_JSON:
 
-            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE)
+            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE) {
                 throw std::out_of_range("return output buffer size out of range");
+            }
 
             std::cout << "received from vmm: \n" << json::parse(std::string(obuffer.get(), regs.r09)).dump(4) << '\n';
             break;
 
         case VMCALL_DATA_STRING_UNFORMATTED:
 
-            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE)
+            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE) {
                 throw std::out_of_range("return output buffer size out of range");
+            }
 
             std::cout << "received from vmm: " << std::string(obuffer.get(), regs.r09) << '\n';
             break;
@@ -413,8 +413,9 @@ ioctl_driver::vmcall_data_binary(registers_type &regs)
     switch (regs.r07) {
         case VMCALL_DATA_BINARY_UNFORMATTED:
 
-            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE)
+            if (regs.r09 >= VMCALL_OUT_BUFFER_SIZE) {
                 throw std::out_of_range("return output buffer size out of range");
+            }
 
             ofile_buffer.resize(regs.r09);
             m_file->write_binary(m_clp->ofile(), ofile_buffer);
