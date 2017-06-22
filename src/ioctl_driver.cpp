@@ -31,6 +31,10 @@
 
 #include <ioctl_driver.h>
 
+#ifndef BFM_DEFAULT_VMM
+#define BFM_DEFAULT_VMM bfvmm
+#endif
+
 ioctl_driver::ioctl_driver(gsl::not_null<file *> f,
                            gsl::not_null<ioctl *> ctl,
                            gsl::not_null<command_line_parser *> clp) :
@@ -97,7 +101,7 @@ command_line_parser::filename_type
 ioctl_driver::bf_vmm_path() const
 {
     auto filename = m_clp->modules();
-    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/bfvmm";
+    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/" bfstringify(BFM_DEFAULT_VMM);
 
     if (!filename.empty()) {
         return filename;
@@ -153,6 +157,11 @@ ioctl_driver::load_vmm()
         }
 
         module_list.push_back(filename);
+    }
+
+    std::cout << filename << " launched with:\n";
+    for (const auto &module : module_list) {
+        std::cout << "  - " << module << bfendl;
     }
 
     // TODO
