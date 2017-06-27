@@ -23,6 +23,7 @@
 
 #include <bfgsl.h>
 #include <bfvector.h>
+#include <bfvcpuid.h>
 #include <bfvmcallinterface.h>
 
 #include <nlohmann/json.hpp>
@@ -131,7 +132,7 @@ command_line_parser::reset() noexcept
     m_cmd = command_type::help;
     m_modules.clear();
     m_cpuid = 0;
-    m_vcpuid = 0;
+    m_vcpuid = vcpuid::invalid;
     m_registers = registers_type{};
     m_ifile.clear();
     m_ofile.clear();

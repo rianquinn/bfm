@@ -247,6 +247,8 @@ ioctl_driver::dump_vmm()
     if (debug_ring_read(&drr, buffer.get(), DEBUG_RING_SIZE) > 0) {
         std::cout << buffer.get();
     }
+
+    std::cout << '\n';
 }
 
 void
