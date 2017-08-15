@@ -117,8 +117,6 @@ private:
 
     status_type get_status() const;
 
-    command_line_parser::filename_type bf_vmm_path() const;
-
 private:
 
     gsl::not_null<file *> m_file;

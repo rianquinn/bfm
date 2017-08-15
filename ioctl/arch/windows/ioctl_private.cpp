@@ -43,35 +43,42 @@ bf_ioctl_open()
     ifInfo.cbSize = sizeof(SP_INTERFACE_DEVICE_DATA);
 
     hDevInfo = SetupDiGetClassDevs(&GUID_DEVINTERFACE_bareflank, 0, 0, DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
-    if (hDevInfo == INVALID_HANDLE_VALUE)
+    if (hDevInfo == INVALID_HANDLE_VALUE) {
         return hDevInfo;
+    }
 
-    if (SetupDiEnumDeviceInfo(hDevInfo, 0, &devInfo) == false)
+    if (SetupDiEnumDeviceInfo(hDevInfo, 0, &devInfo) == false) {
         return INVALID_HANDLE_VALUE;
+    }
 
-    if (SetupDiEnumDeviceInterfaces(hDevInfo, &devInfo, &(GUID_DEVINTERFACE_bareflank), 0, &ifInfo) == false)
+    if (SetupDiEnumDeviceInterfaces(hDevInfo, &devInfo, &(GUID_DEVINTERFACE_bareflank), 0, &ifInfo) == false) {
         return INVALID_HANDLE_VALUE;
+    }
 
     DWORD requiredSize = 0;
 
-    if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &ifInfo, NULL, 0, &requiredSize, NULL) == true)
+    if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &ifInfo, NULL, 0, &requiredSize, NULL) == true) {
         return INVALID_HANDLE_VALUE;
+    }
 
-    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
         return INVALID_HANDLE_VALUE;
+    }
 
     deviceDetailData = static_cast<SP_INTERFACE_DEVICE_DETAIL_DATA *>(malloc(requiredSize));
 
-    if (deviceDetailData == nullptr)
+    if (deviceDetailData == nullptr) {
         return INVALID_HANDLE_VALUE;
+    }
 
     auto ___ = gsl::finally([&]
     { free(deviceDetailData); });
 
     deviceDetailData->cbSize = sizeof(SP_INTERFACE_DEVICE_DETAIL_DATA);
 
-    if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &ifInfo, deviceDetailData, requiredSize, NULL, NULL) == false)
+    if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &ifInfo, deviceDetailData, requiredSize, NULL, NULL) == false) {
         return INVALID_HANDLE_VALUE;
+    }
 
     return CreateFile(deviceDetailData->DevicePath,
                       GENERIC_READ | GENERIC_WRITE,
@@ -85,8 +92,9 @@ bf_ioctl_open()
 int64_t
 bf_send_ioctl(HANDLE fd, DWORD request)
 {
-    if (!DeviceIoControl(fd, request, NULL, 0, NULL, 0, NULL, NULL))
+    if (!DeviceIoControl(fd, request, NULL, 0, NULL, 0, NULL, NULL)) {
         return BF_IOCTL_FAILURE;
+    }
 
     return 0;
 }
@@ -94,8 +102,9 @@ bf_send_ioctl(HANDLE fd, DWORD request)
 int64_t
 bf_read_ioctl(HANDLE fd, DWORD request, void *data, DWORD size)
 {
-    if (!DeviceIoControl(fd, request, NULL, 0, data, size, NULL, NULL))
+    if (!DeviceIoControl(fd, request, NULL, 0, data, size, NULL, NULL)) {
         return BF_IOCTL_FAILURE;
+    }
 
     return 0;
 }
@@ -103,8 +112,9 @@ bf_read_ioctl(HANDLE fd, DWORD request, void *data, DWORD size)
 int64_t
 bf_write_ioctl(HANDLE fd, DWORD request, const void *data, DWORD size)
 {
-    if (!DeviceIoControl(fd, request, const_cast<void *>(data), size, NULL, 0, NULL, NULL))
+    if (!DeviceIoControl(fd, request, const_cast<void *>(data), size, NULL, 0, NULL, NULL)) {
         return BF_IOCTL_FAILURE;
+    }
 
     return 0;
 }
@@ -112,8 +122,9 @@ bf_write_ioctl(HANDLE fd, DWORD request, const void *data, DWORD size)
 int64_t
 bf_read_write_ioctl(HANDLE fd, DWORD request, void *data, DWORD size)
 {
-    if (!DeviceIoControl(fd, request, data, size, data, size, NULL, NULL))
+    if (!DeviceIoControl(fd, request, data, size, data, size, NULL, NULL)) {
         return BF_IOCTL_FAILURE;
+    }
 
     return 0;
 }
@@ -129,15 +140,17 @@ ioctl_private::ioctl_private() :
 
 ioctl_private::~ioctl_private()
 {
-    if (fd != INVALID_HANDLE_VALUE)
+    if (fd != INVALID_HANDLE_VALUE) {
         CloseHandle(fd);
+    }
 }
 
 void
 ioctl_private::open()
 {
-    if ((fd = bf_ioctl_open()) == INVALID_HANDLE_VALUE)
+    if ((fd = bf_ioctl_open()) == INVALID_HANDLE_VALUE) {
         throw std::runtime_error("failed to open to bfdriver");
+    }
 }
 
 #pragma GCC diagnostic push
@@ -149,53 +162,61 @@ ioctl_private::call_ioctl_add_module(gsl::not_null<module_data_type> data, modul
 {
     expects(len > 0);
 
-    if (bf_write_ioctl(fd, IOCTL_ADD_MODULE, data, len) == BF_IOCTL_FAILURE)
+    if (bf_write_ioctl(fd, IOCTL_ADD_MODULE, data, len) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_ADD_MODULE");
+    }
 }
 
 void
 ioctl_private::call_ioctl_load_vmm()
 {
-    if (bf_send_ioctl(fd, IOCTL_LOAD_VMM) == BF_IOCTL_FAILURE)
+    if (bf_send_ioctl(fd, IOCTL_LOAD_VMM) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_LOAD_VMM");
+    }
 }
 
 void
 ioctl_private::call_ioctl_unload_vmm()
 {
-    if (bf_send_ioctl(fd, IOCTL_UNLOAD_VMM) == BF_IOCTL_FAILURE)
+    if (bf_send_ioctl(fd, IOCTL_UNLOAD_VMM) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_UNLOAD_VMM");
+    }
 }
 
 void
 ioctl_private::call_ioctl_start_vmm()
 {
-    if (bf_send_ioctl(fd, IOCTL_START_VMM) == BF_IOCTL_FAILURE)
+    if (bf_send_ioctl(fd, IOCTL_START_VMM) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_START_VMM");
+    }
 }
 
 void
 ioctl_private::call_ioctl_stop_vmm()
 {
-    if (bf_send_ioctl(fd, IOCTL_STOP_VMM) == BF_IOCTL_FAILURE)
+    if (bf_send_ioctl(fd, IOCTL_STOP_VMM) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_STOP_VMM");
+    }
 }
 
 void
 ioctl_private::call_ioctl_dump_vmm(gsl::not_null<drr_pointer> drr, vcpuid_type vcpuid)
 {
-    if (bf_write_ioctl(fd, IOCTL_SET_VCPUID, &vcpuid, sizeof(vcpuid)) == BF_IOCTL_FAILURE)
+    if (bf_write_ioctl(fd, IOCTL_SET_VCPUID, &vcpuid, sizeof(vcpuid)) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_SET_VCPUID");
+    }
 
-    if (bf_read_ioctl(fd, IOCTL_DUMP_VMM, drr, sizeof(*drr)) == BF_IOCTL_FAILURE)
+    if (bf_read_ioctl(fd, IOCTL_DUMP_VMM, drr, sizeof(*drr)) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_DUMP_VMM");
+    }
 }
 
 void
 ioctl_private::call_ioctl_vmm_status(gsl::not_null<status_pointer> status)
 {
-    if (bf_read_ioctl(fd, IOCTL_VMM_STATUS, status, sizeof(*status)) == BF_IOCTL_FAILURE)
+    if (bf_read_ioctl(fd, IOCTL_VMM_STATUS, status, sizeof(*status)) == BF_IOCTL_FAILURE) {
         throw std::runtime_error("ioctl failed: IOCTL_VMM_STATUS");
+    }
 }
 
 #pragma GCC diagnostic pop

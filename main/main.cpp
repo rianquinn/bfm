@@ -106,11 +106,10 @@ protected_main(const command_line_parser::arg_list_type &args)
     // -------------------------------------------------------------------------
     // Command Line Parser
 
-    auto &&clp = std::make_unique<command_line_parser>();
+    auto clp = std::make_unique<command_line_parser>();
     clp->parse(args);
 
-    if (clp->cmd() == command_line_parser_command::help)
-    {
+    if (clp->cmd() == command_line_parser_command::help) {
         help();
         return EXIT_SUCCESS;
     }
@@ -118,7 +117,7 @@ protected_main(const command_line_parser::arg_list_type &args)
     // -------------------------------------------------------------------------
     // IO Controller
 
-    auto &&ctl = std::make_unique<ioctl>();
+    auto ctl = std::make_unique<ioctl>();
     ctl->open();
 
     // -------------------------------------------------------------------------
@@ -133,13 +132,13 @@ protected_main(const command_line_parser::arg_list_type &args)
     // -------------------------------------------------------------------------
     // CPU Affinity
 
-
+    std::cout << "warning: cpu affinity not implemented yet!!!\n";
 
     // -------------------------------------------------------------------------
     // IOCTR Driver
 
-    auto &&f = std::make_unique<file>();
-    auto &&driver = std::make_unique<ioctl_driver>(f.get(), ctl.get(), clp.get());
+    auto f = std::make_unique<file>();
+    auto driver = std::make_unique<ioctl_driver>(f.get(), ctl.get(), clp.get());
 
     driver->process();
 
@@ -155,23 +154,21 @@ main(int argc, const char *argv[])
     std::set_terminate(terminate);
     std::set_new_handler(new_handler);
 
-    try
-    {
+    try {
         command_line_parser::arg_list_type args;
         auto args_span = gsl::make_span(argv, argc);
 
-        for (auto i = 1; i < argc; i++)
+        for (auto i = 1; i < argc; i++) {
             args.push_back(args_span[i]);
+        }
 
         return protected_main(args);
     }
-    catch (std::exception &e)
-    {
+    catch (std::exception &e) {
         std::cerr << "Caught unhandled exception:" << '\n';
         std::cerr << "    - what(): " << e.what() << '\n';
     }
-    catch (...)
-    {
+    catch (...) {
         std::cerr << "Caught unknown exception" << '\n';
     }
 

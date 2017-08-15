@@ -22,7 +22,6 @@
 #include <bfgsl.h>
 #include <bffile.h>
 #include <bfjson.h>
-#include <bfdebug.h>
 #include <bfstring.h>
 #include <bfshuffle.h>
 #include <bfelf_loader.h>
@@ -85,23 +84,16 @@ bf_library_path()
         paths.push_back(path);
     }
 
-    auto default_paths = {
-        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/lib"_s,
-        CMAKE_INSTALL_PREFIX + "/sysroots/x86_64-vmm-elf/bin"_s
-    };
-
-    for (const auto &path : default_paths) {
-        paths.push_back(path);
-    }
+    paths.push_back(CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/lib");
+    paths.push_back(CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin");
 
     return paths;
 }
 
-command_line_parser::filename_type
-ioctl_driver::bf_vmm_path() const
+std::string
+bf_vmm_path(gsl::not_null<command_line_parser *> clp)
 {
-    auto filename = m_clp->modules();
-    auto default_filename = CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/" bfstringify(BFM_DEFAULT_VMM);
+    auto filename = clp->modules();
 
     if (!filename.empty()) {
         return filename;
@@ -111,21 +103,38 @@ ioctl_driver::bf_vmm_path() const
         return {bf_vmm_path};
     }
 
-    return default_filename;
+    return CMAKE_INSTALL_PREFIX "/sysroots/x86_64-vmm-elf/bin/" bfstringify(BFM_DEFAULT_VMM);
+}
+
+auto
+bf_vmm_module_list(gsl::not_null<file *> f, const std::string &filename)
+{
+    std::vector<std::string> module_list;
+
+    if (f->extension(filename) == ".modules") {
+        for (const auto &module : json::parse(f->read_text(filename))) {
+            module_list.push_back(module);
+        }
+    }
+    else {
+        bfn::buffer buffer{};
+        bfelf_binary_t binary{};
+
+        module_list = bfelf_read_binary_and_get_needed_list(
+                          f, filename, bf_library_path(), buffer, binary);
+
+        bfn::shuffle(module_list);
+        module_list.push_back(filename);
+    }
+
+    return module_list;
 }
 
 void
 ioctl_driver::load_vmm()
 {
-    auto &&filename = bf_vmm_path();
-
-    // TODO:
-    //
-    // Break this function up so that it is easier to test
-    //
-
-    std::vector<std::string> module_list;
-    auto ext = m_file->extension(filename);
+    auto filename = bf_vmm_path(m_clp);
+    auto module_list = bf_vmm_module_list(m_file, filename);
 
     switch (get_status()) {
         case VMM_RUNNING: stop_vmm();
@@ -134,40 +143,6 @@ ioctl_driver::load_vmm()
         case VMM_CORRUPT: throw std::runtime_error("vmm corrupt");
         default: throw std::runtime_error("unknown status");
     }
-
-    if (ext == ".modules") {
-        for (const auto &module : json::parse(m_file->read_text(filename))) {
-            module_list.push_back(module);
-        }
-
-        if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
-            bfn::shuffle(module_list);
-        }
-    }
-    else {
-
-        bfn::buffer buffer;
-        bfelf_binary_t binary = {};
-
-        module_list = bfelf_read_binary_and_get_needed_list(
-                          m_file, filename, bf_library_path(), buffer, binary);
-
-        if (std::getenv("BF_DISABLE_ASLR") == nullptr) {
-            bfn::shuffle(module_list);
-        }
-
-        module_list.push_back(filename);
-    }
-
-    std::cout << filename << " launched with:\n";
-    for (const auto &module : module_list) {
-        std::cout << "  - " << module << bfendl;
-    }
-
-    // TODO
-    //
-    // BF_DISABLE_ASLR should only work if production mode is turned off
-    //
 
     auto ___ = gsl::on_failure([&]
     { unload_vmm(); });
@@ -255,10 +230,10 @@ void
 ioctl_driver::vmm_status()
 {
     switch (get_status()) {
-        case VMM_UNLOADED: std::cout << "VMM_UNLOADED\n"; return;
-        case VMM_LOADED: std::cout << "VMM_LOADED\n"; return;
-        case VMM_RUNNING: std::cout << "VMM_RUNNING\n"; return;
-        case VMM_CORRUPT: std::cout << "VMM_CORRUPT\n"; return;
+        case VMM_UNLOADED: std::cout << "vmm unloaded\n"; return;
+        case VMM_LOADED: std::cout << "vmm loaded\n"; return;
+        case VMM_RUNNING: std::cout << "vmm running\n"; return;
+        case VMM_CORRUPT: std::cout << "vmm corrupt\n"; return;
         default: throw std::runtime_error("unknown status");
     }
 }
@@ -379,7 +354,8 @@ ioctl_driver::vmcall_data(registers_type &regs)
 void
 ioctl_driver::vmcall_data_string(registers_type &regs)
 {
-    auto &&obuffer = std::make_unique<char[]>(VMCALL_OUT_BUFFER_SIZE);
+    auto obuffer = std::make_unique<char[]>(VMCALL_OUT_BUFFER_SIZE);
+
     regs.r08 = reinterpret_cast<decltype(regs.r08)>(obuffer.get());
     regs.r09 = VMCALL_OUT_BUFFER_SIZE;
 
@@ -412,8 +388,9 @@ ioctl_driver::vmcall_data_string(registers_type &regs)
 void
 ioctl_driver::vmcall_data_binary(registers_type &regs)
 {
-    auto &&ifile_buffer = m_file->read_binary(m_clp->ifile());
-    auto &&ofile_buffer = file::binary_data(VMCALL_OUT_BUFFER_SIZE);
+    auto ifile_buffer = m_file->read_binary(m_clp->ifile());
+    auto ofile_buffer = file::binary_data(VMCALL_OUT_BUFFER_SIZE);
+
     regs.r05 = reinterpret_cast<decltype(regs.r05)>(ifile_buffer.data());
     regs.r06 = ifile_buffer.size();
     regs.r08 = reinterpret_cast<decltype(regs.r08)>(ofile_buffer.data());

@@ -52,7 +52,7 @@ const std::vector<std::string> g_filenames = {
 std::pair<std::unique_ptr<char[]>, uint64_t>
 get_real_elf(const std::string &filename)
 {
-    if (auto && ifs = std::ifstream(filename, std::ifstream::ate)) {
+    if (auto &&ifs = std::ifstream(filename, std::ifstream::ate)) {
         auto &&size = static_cast<uint64_t>(ifs.tellg());
         auto &&data = std::make_unique<char[]>(size);
 
